@@ -14,6 +14,8 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { PhotosService } from './photos.service';
 import { Photo } from './types/photo.interface';
 import { UpdatePhotoDto } from './DTOs/update-photo.dto';
+import { BufferStream } from 'src/utils/exif-parser/buffer-stream';
+import { EXIFParser } from 'src/utils/exif-parser/parser';
 
 @Controller('photos')
 export class PhotosController {
@@ -22,6 +24,12 @@ export class PhotosController {
   @Post()
   @UseInterceptors(FilesInterceptor('images', 20)) // Allow Multiple Files
   createPhotos(@UploadedFiles() files: Array<Express.Multer.File>): void {
+    const buffer = files[0].buffer;
+    const bufferStream = new BufferStream(buffer, 0, buffer.length, true);
+    const parser = new EXIFParser(bufferStream);
+
+    parser.parse();
+
     this.photoService.create(files);
   }
 
