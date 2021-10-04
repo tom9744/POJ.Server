@@ -1,4 +1,4 @@
-export interface MarkedBufferStream {
+export interface Marker {
   openWithOffset: (offset: number) => BufferStream;
   offset: number;
 }
@@ -20,9 +20,23 @@ export class BufferStream {
     this.bigEndian = bigEndian;
   }
 
+  public nextInt8(): number {
+    const value = this.buffer.readInt8(this.offset);
+    this.offset += 1;
+    return value;
+  }
+
   public nextUInt8(): number {
     const value = this.buffer.readUInt8(this.offset);
     this.offset += 1;
+    return value;
+  }
+
+  public nextInt16(): number {
+    const value = this.bigEndian
+      ? this.buffer.readInt16BE(this.offset)
+      : this.buffer.readInt16LE(this.offset);
+    this.offset += 2;
     return value;
   }
 
@@ -34,11 +48,35 @@ export class BufferStream {
     return value;
   }
 
+  public nextInt32(): number {
+    const value = this.bigEndian
+      ? this.buffer.readInt32BE(this.offset)
+      : this.buffer.readInt32LE(this.offset);
+    this.offset += 4;
+    return value;
+  }
+
   public nextUInt32(): number {
     const value = this.bigEndian
       ? this.buffer.readUInt32BE(this.offset)
       : this.buffer.readUInt32LE(this.offset);
     this.offset += 4;
+    return value;
+  }
+
+  public nextFloat(): number {
+    const value = this.bigEndian
+      ? this.buffer.readFloatBE(this.offset)
+      : this.buffer.readFloatLE(this.offset);
+    this.offset += 4;
+    return value;
+  }
+
+  public nextDouble(): number {
+    const value = this.bigEndian
+      ? this.buffer.readDoubleBE(this.offset)
+      : this.buffer.readDoubleLE(this.offset);
+    this.offset += 8;
     return value;
   }
 
@@ -66,23 +104,24 @@ export class BufferStream {
     this.offset += length;
   }
 
-  public offsetFrom(marker: MarkedBufferStream) {
+  public offsetFrom(marker: Marker) {
     return this.offset - marker.offset;
   }
 
-  public mark(): MarkedBufferStream {
+  public mark(): Marker {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const self = this;
+
     return {
-      openWithOffset: (offset: number): BufferStream => {
+      openWithOffset: function (offset: number): BufferStream {
         offset = (offset || 0) + this.offset;
 
-        const bufferSteam = new BufferStream(
-          this.buffer,
+        return new BufferStream(
+          self.buffer,
           offset,
-          this.endPosition - offset,
-          this.bigEndian,
+          self.endPosition - offset,
+          self.bigEndian,
         );
-
-        return bufferSteam;
       },
       offset: this.offset,
     };
