@@ -1,7 +1,4 @@
-export interface Marker {
-  openWithOffset: (offset: number) => BufferStream;
-  offset: number;
-}
+import { Marker } from './exif-parser.model';
 
 export class BufferStream {
   endPosition: number;
@@ -16,7 +13,7 @@ export class BufferStream {
     this.endPosition = this.offset + length;
   }
 
-  public setBigEndian(bigEndian) {
+  public setBigEndian(bigEndian: boolean): void {
     this.bigEndian = bigEndian;
   }
 
