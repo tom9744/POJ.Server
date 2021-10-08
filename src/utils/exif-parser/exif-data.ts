@@ -4,7 +4,12 @@ import {
   GPS_EXIF_TAGS,
   IFD_EXIF_TAGS,
 } from './exif-parser.constant';
-import { IFDEntry, JpegSection, Marker } from './exif-parser.model';
+import {
+  IFDEntry,
+  JpegSection,
+  Marker,
+  ProcessedIFDEntry,
+} from './exif-parser.model';
 
 /**
  * APP1 데이터는 0xFFE1 마커로 시작 지점을 파악할 수 있으며, 다음의 데이터를 포함한다.
@@ -28,32 +33,20 @@ export class App1 {
   private gps: IFDEntry[] = [];
 
   // Getters
-  get IFD0() {
-    return this.ifd0.map((entry) => ({
-      ...entry,
-      tagType: IFD_EXIF_TAGS[entry.tagType],
-    }));
+  get IFD0(): ProcessedIFDEntry[] {
+    return this.ifd0.map((entry) => this.processIFDEntry(entry));
   }
 
-  get IFD1() {
-    return this.ifd1.map((entry) => ({
-      ...entry,
-      tagType: IFD_EXIF_TAGS[entry.tagType],
-    }));
+  get IFD1(): ProcessedIFDEntry[] {
+    return this.ifd1.map((entry) => this.processIFDEntry(entry));
   }
 
-  get subIFD() {
-    return this.subIfd.map((entry) => ({
-      ...entry,
-      tagType: IFD_EXIF_TAGS[entry.tagType],
-    }));
+  get subIFD(): ProcessedIFDEntry[] {
+    return this.subIfd.map((entry) => this.processIFDEntry(entry));
   }
 
-  get GPS() {
-    return this.gps.map((entry) => ({
-      ...entry,
-      tagType: GPS_EXIF_TAGS[entry.tagType],
-    }));
+  get GPS(): ProcessedIFDEntry[] {
+    return this.gps.map((entry) => this.processIFDEntry(entry, true));
   }
 
   constructor(section: JpegSection) {
@@ -68,6 +61,15 @@ export class App1 {
     this.checkHeaders();
 
     this.readAPP1Data();
+  }
+
+  private processIFDEntry(entry: IFDEntry, isGPS = false): ProcessedIFDEntry {
+    const { format, values, tagType } = entry;
+    const tagTypeString = isGPS
+      ? GPS_EXIF_TAGS[tagType]
+      : IFD_EXIF_TAGS[tagType];
+
+    return new ProcessedIFDEntry(format, values, tagTypeString);
   }
 
   private checkHeaders(): void {
@@ -149,7 +151,7 @@ export class App1 {
       targetStream = this.tiffMarker.openWithOffset(payloadOffset);
     }
 
-    let values: Array<number | number[]> | Buffer | string;
+    let values: Array<number | number[]> | string;
 
     // ASCII String Type
     if (format === 2) {
@@ -161,9 +163,9 @@ export class App1 {
         values = values.substr(0, lastNullIndex);
       }
     }
-    // Undefined Type
+    // Ignore Undefined Type
     else if (format === 7) {
-      values = targetStream.nextBufferByLength(numberOfComponents);
+      targetStream.nextBufferByLength(numberOfComponents);
     }
     // Otherwise
     else if (format !== 0) {
@@ -183,7 +185,7 @@ export class App1 {
     return { tagType, format, values };
   }
 
-  private readIFDFormat(targetStream: BufferStream, isGPS = false): IFDEntry[] {
+  private readIFDFormat(targetStream: BufferStream): IFDEntry[] {
     if (targetStream.remainingLength() < 2) {
       return [];
     }

@@ -29,7 +29,19 @@ export class EXIFParser {
     }
 
     const app1Data = new App1(sectionApp1);
+    const { IFD0, IFD1, subIFD, GPS } = app1Data;
 
-    console.log(app1Data.GPS);
+    IFD0.forEach((entry) => {
+      console.log(entry.tagType, entry.value);
+    });
+    IFD1.forEach((entry) => {
+      console.log(entry.tagType, entry.value);
+    });
+    subIFD.forEach((entry) => {
+      console.log(entry.tagType, entry.value);
+    });
+    GPS.forEach((entry) => {
+      console.log(entry.tagType, entry.value);
+    });
   }
 }
