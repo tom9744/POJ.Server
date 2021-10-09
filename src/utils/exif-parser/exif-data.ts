@@ -5,10 +5,11 @@ import {
   IFD_EXIF_TAGS,
 } from './exif-parser.constant';
 import {
+  App1Data,
   IFDEntry,
+  IFDEntryRational64u,
   JpegSection,
   Marker,
-  ProcessedIFDEntry,
 } from './exif-parser.model';
 
 /**
@@ -27,27 +28,7 @@ export class App1 {
   private tagMark: 0x002a | 0x2a00;
 
   // Payloads
-  private ifd0: IFDEntry[] = [];
-  private subIfd: IFDEntry[] = [];
-  private ifd1: IFDEntry[] = [];
-  private gps: IFDEntry[] = [];
-
-  // Getters
-  get IFD0(): ProcessedIFDEntry[] {
-    return this.ifd0.map((entry) => this.processIFDEntry(entry));
-  }
-
-  get IFD1(): ProcessedIFDEntry[] {
-    return this.ifd1.map((entry) => this.processIFDEntry(entry));
-  }
-
-  get subIFD(): ProcessedIFDEntry[] {
-    return this.subIfd.map((entry) => this.processIFDEntry(entry));
-  }
-
-  get GPS(): ProcessedIFDEntry[] {
-    return this.gps.map((entry) => this.processIFDEntry(entry, true));
-  }
+  public tags: App1Data;
 
   constructor(section: JpegSection) {
     const { name, payload } = section;
@@ -57,19 +38,8 @@ export class App1 {
     }
 
     this.bufferStream = payload;
-
     this.checkHeaders();
-
     this.readAPP1Data();
-  }
-
-  private processIFDEntry(entry: IFDEntry, isGPS = false): ProcessedIFDEntry {
-    const { format, values, tagType } = entry;
-    const tagTypeString = isGPS
-      ? GPS_EXIF_TAGS[tagType]
-      : IFD_EXIF_TAGS[tagType];
-
-    return new ProcessedIFDEntry(format, values, tagTypeString);
   }
 
   private checkHeaders(): void {
@@ -99,9 +69,11 @@ export class App1 {
 
     // Remember TIFF Header's position.
     this.tiffMarker = tiffMarker;
+    this.byteAlign = byteAlign;
+    this.tagMark = tagMark;
   }
 
-  private readValue(format: number, stream: BufferStream): number | number[] {
+  private readNumericValue(format: number, stream: BufferStream): number {
     switch (format) {
       case 0x01:
         return stream.nextUInt8();
@@ -109,20 +81,30 @@ export class App1 {
         return stream.nextUInt16();
       case 0x04:
         return stream.nextUInt32();
-      case 0x05:
-        return [stream.nextUInt32(), stream.nextUInt32()];
       case 0x06:
         return stream.nextInt8();
       case 0x08:
         return stream.nextUInt16();
       case 0x09:
         return stream.nextUInt32();
-      case 0x0a:
-        return [stream.nextInt32(), stream.nextInt32()];
       case 0x0b:
         return stream.nextFloat();
       case 0x0c:
         return stream.nextDouble();
+      default:
+        throw new Error('Invalid format while decoding: ' + format);
+    }
+  }
+
+  private readRationalValue(
+    format: number,
+    stream: BufferStream,
+  ): [number, number] {
+    switch (format) {
+      case 0x05:
+        return [stream.nextUInt32(), stream.nextUInt32()];
+      case 0x0a:
+        return [stream.nextInt32(), stream.nextInt32()];
       default:
         throw new Error('Invalid format while decoding: ' + format);
     }
@@ -137,7 +119,9 @@ export class App1 {
    * @param targetStream
    * @returns { tagType, format, values }
    */
-  private readIFDEntry(targetStream: BufferStream): IFDEntry {
+  private readIFDEntry(
+    targetStream: BufferStream,
+  ): IFDEntry | IFDEntryRational64u {
     const tagType = targetStream.nextUInt16();
     const format = targetStream.nextUInt16();
     const numberOfComponents = targetStream.nextUInt32();
@@ -151,41 +135,51 @@ export class App1 {
       targetStream = this.tiffMarker.openWithOffset(payloadOffset);
     }
 
-    let values: Array<number | number[]> | string;
+    let values: Array<number | [number, number]> | string;
 
     // ASCII String Type
     if (format === 2) {
-      values = targetStream.nextStringByLength(numberOfComponents);
+      const asciiString = targetStream.nextStringByLength(numberOfComponents);
+      const lastNullIndex = asciiString.indexOf('\0');
 
-      const lastNullIndex = values.indexOf('\0');
-
-      if (lastNullIndex !== -1) {
-        values = values.substr(0, lastNullIndex);
-      }
+      values =
+        lastNullIndex !== -1
+          ? asciiString.substr(0, lastNullIndex)
+          : asciiString;
     }
-    // Ignore Undefined Type
+    // Undefined Type
     else if (format === 7) {
       targetStream.nextBufferByLength(numberOfComponents);
     }
-    // Otherwise
+    // Other Types
     else if (format !== 0) {
-      values = [];
+      const emptyValues = new Array(numberOfComponents).fill(null);
+      const readValues = emptyValues.map(() => {
+        return format === 0x05 || format === 0x0a
+          ? this.readRationalValue(format, targetStream)
+          : this.readNumericValue(format, targetStream);
+      });
 
-      for (let comp = 0; comp < numberOfComponents; ++comp) {
-        const value = this.readValue(format, targetStream);
-
-        values.push(value);
-      }
+      values = readValues;
     }
 
     if (payloadSize < 4) {
       targetStream.skip(4 - payloadSize);
     }
 
-    return { tagType, format, values };
+    return format === 0x05 || format === 0x0a
+      ? new IFDEntryRational64u(
+          tagType,
+          format,
+          values as Array<[number, number]>,
+        )
+      : new IFDEntry(tagType, format, values as number[] | string);
   }
 
-  private readIFDFormat(targetStream: BufferStream): IFDEntry[] {
+  private readIFDFormat(
+    targetStream: BufferStream,
+    isGPS = false,
+  ): Array<IFDEntry | IFDEntryRational64u> {
     if (targetStream.remainingLength() < 2) {
       return [];
     }
@@ -193,7 +187,12 @@ export class App1 {
     const numberOfEntries = targetStream.nextUInt16();
     const emptyEntries = new Array(numberOfEntries).fill(null);
     const entries = emptyEntries.map(() => {
-      return this.readIFDEntry(targetStream);
+      const entry = this.readIFDEntry(targetStream);
+      entry.tagName = isGPS
+        ? GPS_EXIF_TAGS[entry.tagType]
+        : IFD_EXIF_TAGS[entry.tagType];
+
+      return entry;
     });
 
     return entries;
@@ -223,10 +222,12 @@ export class App1 {
     const IFD0 = this.readIFDFormat(IFD0Stream);
     const IFD1Offset = IFD0Stream.nextUInt32();
 
+    const tags: App1Data = { ifd0: IFD0, ifd1: [], subIfd: [], gps: [] };
+
     if (IFD1Offset !== 0) {
       const bufferStreamIFD1 = this.tiffMarker.openWithOffset(IFD1Offset);
 
-      this.ifd1 = this.readIFDFormat(bufferStreamIFD1);
+      tags.ifd1 = this.readIFDFormat(bufferStreamIFD1);
     }
 
     // GPS
@@ -236,7 +237,7 @@ export class App1 {
       const gpsOffset = gpsIFD.values[0];
       const gpsStream = this.tiffMarker.openWithOffset(gpsOffset as number);
 
-      this.gps = this.readIFDFormat(gpsStream);
+      tags.gps = this.readIFDFormat(gpsStream, true);
     }
 
     // EXIF SubIFD
@@ -246,9 +247,9 @@ export class App1 {
       const subOffset = subIFD.values[0];
       const subStream = this.tiffMarker.openWithOffset(subOffset as number);
 
-      this.subIfd = this.readIFDFormat(subStream);
+      tags.subIfd = this.readIFDFormat(subStream);
     }
 
-    this.ifd0 = IFD0;
+    this.tags = tags;
   }
 }

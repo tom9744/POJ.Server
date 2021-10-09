@@ -15,74 +15,50 @@ export interface Marker {
   offset: number;
 }
 
-export interface IFDEntry {
-  tagType: number;
-  format: number;
-  values: Array<number | number[]> | string;
-}
-
-export class ProcessedIFDEntry {
-  public parsedValue: string | number | number[];
+export class IFDEntry {
+  private _tagName: string;
 
   constructor(
+    public tagType: number,
     public format: number,
-    public values: Array<number | number[]> | string,
-    public tagType: string,
+    public values: Array<number> | string,
+  ) {}
+
+  get tagName(): string {
+    return this._tagName;
+  }
+
+  set tagName(value: string) {
+    this._tagName = value;
+  }
+}
+
+export class IFDEntryRational64u {
+  private _tagName: string;
+  public simplifedValues: Array<number>;
+
+  constructor(
+    public tagType: number,
+    public format: 0x05 | 0x0a,
+    public values: Array<[number, number]>,
   ) {
-    this.simplify();
+    this.simplifedValues = values.map(
+      ([numerator, denominator]) => numerator / denominator,
+    );
   }
 
-  public get value() {
-    return this.parsedValue;
+  get tagName(): string {
+    return this._tagName;
   }
 
-  private get isCoordinate(): boolean {
-    return this.tagType === 'GPSLatitude' || this.tagType === 'GPSLongitude';
+  set tagName(value: string) {
+    this._tagName = value;
   }
+}
 
-  private get isTimeStamp(): boolean {
-    return this.tagType === 'GPSTimeStamp';
-  }
-
-  private get isRational(): boolean {
-    return this.format === 0x05 || this.format === 0x0a;
-  }
-
-  private parseCoordinate(): number {
-    if (!Array.isArray(this.parsedValue)) {
-      throw TypeError('Not a Coordinate Type.');
-    }
-
-    const [degree, minutes, seconds] = [...this.parsedValue];
-
-    return degree + minutes / 60 + seconds / 3600;
-  }
-
-  private parseTimeStamp(): string {
-    if (!Array.isArray(this.parsedValue)) {
-      throw TypeError('Not a TimeStamp Type.');
-    }
-
-    return this.parsedValue
-      .map((value) => (value < 10 ? `0${value}` : `${value}`))
-      .join(':');
-  }
-
-  private simplify(): void {
-    if (Array.isArray(this.values)) {
-      this.parsedValue = this.values.map((value) => {
-        return this.isRational ? value[0] / value[1] : (value as number);
-      });
-
-      if (this.isCoordinate) {
-        this.parsedValue = this.parseCoordinate();
-      } else if (this.isTimeStamp) {
-        this.parsedValue = this.parseTimeStamp();
-      } else {
-        this.parsedValue = this.parsedValue[0];
-      }
-    } else {
-      this.parsedValue = this.values;
-    }
-  }
+export interface App1Data {
+  ifd0: Array<IFDEntry | IFDEntryRational64u>;
+  ifd1: Array<IFDEntry | IFDEntryRational64u>;
+  subIfd: Array<IFDEntry | IFDEntryRational64u>;
+  gps: Array<IFDEntry | IFDEntryRational64u>;
 }

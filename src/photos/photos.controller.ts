@@ -26,9 +26,9 @@ export class PhotosController {
   createPhotos(@UploadedFiles() files: Array<Express.Multer.File>): void {
     const buffer = files[0].buffer;
     const bufferStream = new BufferStream(buffer, 0, buffer.length, true);
-    const parser = new EXIFParser(bufferStream);
+    const parser = new EXIFParser();
 
-    parser.parse();
+    parser.parse(bufferStream);
 
     this.photoService.create(files);
   }
