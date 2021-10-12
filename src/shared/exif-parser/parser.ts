@@ -1,7 +1,7 @@
 import { BufferStream } from './buffer-stream';
 import { JpegSectionExtractor } from './jpeg-section-extractor';
 import { App1 } from './exif-data';
-import { IFDEntry, IFDEntryRational64u } from './exif-parser.model';
+import { IFDEntryRational64u } from './exif-parser.model';
 
 export interface Gps {
   GPSLatitudeRef?: string;
@@ -47,13 +47,13 @@ export class EXIFParser {
   }
 
   public parse(targetstream: BufferStream) {
-    const originalStream = targetstream.mark(); // Original Buffer Stream
+    const originalStream = targetstream.mark(); // Remember original buffer stream
     const stream = originalStream.openWithOffset(0);
-    const sections = JpegSectionExtractor.extractSections(stream); // JPEG Sections starts with a byte 0xFF
-    const sectionApp1 = sections.find(({ markerType }) => markerType === 0xe1); // Find APP1 Section among JPEG Sections ends with 0xE1
+    const sections = JpegSectionExtractor.extractSections(stream); // JPEG Sections start with a byte 0xFF
+    const sectionApp1 = sections.find(({ markerType }) => markerType === 0xe1); // Find APP1 Section among JPEG Sections which ends with 0xE1
 
     if (!sectionApp1) {
-      throw new Error('Failed to pared APP1 data from the JPEG file.');
+      throw new Error('APP1 data does not exist.');
     }
 
     const app1 = new App1(sectionApp1);

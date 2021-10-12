@@ -12,29 +12,16 @@ import {
   Marker,
 } from './exif-parser.model';
 
-/**
- * APP1 데이터는 0xFFE1 마커로 시작 지점을 파악할 수 있으며, 다음의 데이터를 포함한다.
- * IFD0(Main Image), SubIFD, IFD1(Thumbnail Image), GPS
- *
- * IFD0, IFD1에는 조리개, 노출 등 세부적인 카메라 정보가 포함되지 않는다.
- * IFD0에 항상 SubIFD의 Offset(= 시작 위치)를 알리는 Special Tag(0x8769)가 포함된다.
- */
 export class App1 {
-  private bufferStream: BufferStream;
-
-  // TIFF Header Info
-  private tiffMarker: Marker;
-  private byteAlign: 0x4949 | 0x4d4d;
-  private tagMark: 0x002a | 0x2a00;
-
-  // Payloads
-  public tags: App1Data;
+  private bufferStream: BufferStream; // Original buffer stream.
+  private tiffMarker: Marker; // TIFF Header's starting point.
+  public tags: App1Data; // Payloads
 
   constructor(section: JpegSection) {
     const { name, payload } = section;
 
     if (name !== 'APP1') {
-      throw new TypeError('Not a APP1 Section');
+      throw new TypeError('Invalid APP1 JPEG Section!');
     }
 
     this.bufferStream = payload;
@@ -42,6 +29,14 @@ export class App1 {
     this.readAPP1Data();
   }
 
+  /**
+   * Read the buffer stream's header area to check if the data is in JPEG format.
+   *
+   * A JPEG formatted data must have an EXIF header and a TIFF header.
+   *
+   * The EXIF header should be a 6-character-long string, 'Exif\0\0', and
+   * the TIFF header consists of three parts; byte align, tag mark, first IFD's offset.
+   */
   private checkHeaders(): void {
     // EXIF Header
     const exifHeader = this.bufferStream.nextStringByLength(6);
@@ -69,10 +64,15 @@ export class App1 {
 
     // Remember TIFF Header's position.
     this.tiffMarker = tiffMarker;
-    this.byteAlign = byteAlign;
-    this.tagMark = tagMark;
   }
 
+  /**
+   * Read numeric typed data which takes from 1byte to 4bytes depending on its format.
+   *
+   * @param format Entry's format.
+   * @param stream Entry's Butter Stream.
+   * @returns A value.
+   */
   private readNumericValue(format: number, stream: BufferStream): number {
     switch (format) {
       case 0x01:
@@ -96,6 +96,13 @@ export class App1 {
     }
   }
 
+  /**
+   * Read rational typed data which takes 4bytes each.
+   *
+   * @param format Entry's format. (either 0x05 or 0x0a)
+   * @param stream Entry's Butter Stream.
+   * @returns A Tuple of rational value.
+   */
   private readRationalValue(
     format: number,
     stream: BufferStream,
@@ -111,13 +118,15 @@ export class App1 {
   }
 
   /**
+   * Read a single entry of IFD formatted data.
+   *
    * Each IFD entry takes only 12bytes.
    *
    * Last 4bytes are where the data or data's offset is being stored.
    * If the payload size exceeds 4bytes, it is located in the payload area.
    *
-   * @param targetStream
-   * @returns { tagType, format, values }
+   * @param targetStream Section's Buffer Stream.
+   * @returns { tagType, format, values } IFD entry.
    */
   private readIFDEntry(
     targetStream: BufferStream,
@@ -176,6 +185,13 @@ export class App1 {
       : new IFDEntry(tagType, format, values as number[] | string);
   }
 
+  /**
+   * Read IFD formatted sections such as IFD0, IFD1, SubIFD, and GPS.
+   *
+   * @param targetStream Section's Buffer Stream.
+   * @param isGPS Set this parameter as 'true' when reading GPS Data.
+   * @returns An Array of IFD formatted data's entry.
+   */
   private readIFDFormat(
     targetStream: BufferStream,
     isGPS = false,
@@ -230,7 +246,7 @@ export class App1 {
       tags.ifd1 = this.readIFDFormat(bufferStreamIFD1);
     }
 
-    // GPS
+    // IFD0 entry with the tag type 0x8825 notifies where GPS data is located in the buffer stream.
     const gpsIFD = IFD0.find((entry) => entry.tagType === 0x8825);
 
     if (gpsIFD) {
@@ -240,7 +256,7 @@ export class App1 {
       tags.gps = this.readIFDFormat(gpsStream, true);
     }
 
-    // EXIF SubIFD
+    // IFD0 entry with the tag type 0x8769 notifies where SubIFD data is located in the buffer stream.
     const subIFD = IFD0.find((entry) => entry.tagType === 0x8769);
 
     if (subIFD) {
