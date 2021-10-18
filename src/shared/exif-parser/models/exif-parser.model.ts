@@ -1,18 +1,10 @@
-import { BufferStream } from './buffer-stream';
-
-export type Tag = {
-  [tagNumber: number]: string;
-};
-
-export interface JpegSection {
-  markerType: number;
-  name: string;
-  payload: BufferStream;
-}
-
-export interface Marker {
-  openWithOffset: (offset: number) => BufferStream;
-  offset: number;
+export interface ExifParserConfigs {
+  hidePointers: boolean;
+  imageSize: boolean;
+  readBinaryTags: boolean;
+  resolveTagNames: boolean;
+  returnTags: boolean;
+  simplifyValues: boolean;
 }
 
 export class IFDEntry {

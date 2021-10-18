@@ -1,5 +1,3 @@
-import { Tag } from './exif-parser.model';
-
 export const BYTES_PER_COMPONENT: { [format: number]: number } = {
   0x01: 1, // Unsigned Byte
   0x02: 1, // ASCII String
@@ -15,30 +13,7 @@ export const BYTES_PER_COMPONENT: { [format: number]: number } = {
   0x0c: 8, // Double Float
 };
 
-export const JPEG_MARKER_TYPES: { [markerType: number]: string } = {
-  0xc0: 'SOF0',
-  0xc2: 'SOF2',
-  0xc4: 'DHT',
-  0xd0: 'Restart',
-  0xd1: 'Restart',
-  0xd2: 'Restart',
-  0xd3: 'Restart',
-  0xd4: 'Restart',
-  0xd5: 'Restart',
-  0xd6: 'Restart',
-  0xd7: 'Restart',
-  0xd8: 'SOI',
-  0xd9: 'EOI',
-  0xda: 'SOS',
-  0xdb: 'DQT',
-  0xdd: 'DRI',
-  0xe0: 'APP0',
-  0xe1: 'APP1',
-  0xe2: 'APP2',
-  0xfe: 'COM',
-};
-
-export const GPS_EXIF_TAGS: Tag = {
+export const GPS_EXIF_TAGS: { [tagNumber: number]: string } = {
   0x0000: 'GPSVersionID',
   0x0001: 'GPSLatitudeRef',
   0x0002: 'GPSLatitude',
@@ -73,7 +48,7 @@ export const GPS_EXIF_TAGS: Tag = {
   0x001f: 'GPSHPositioningError',
 };
 
-export const IFD_EXIF_TAGS: Tag = {
+export const IFD_EXIF_TAGS: { [tagNumber: number]: string } = {
   0x0001: 'InteropIndex',
   0x0002: 'InteropVersion',
   0x000b: 'ProcessingSoftware',

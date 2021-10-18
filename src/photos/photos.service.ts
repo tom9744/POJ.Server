@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { ExifParserService } from 'src/shared/exif-parser/exif-parser.service';
 
 import { v1 as uuid } from 'uuid';
 
@@ -9,7 +10,11 @@ import { Photo } from './types/photo.interface';
 export class PhotosService {
   private readonly photos = [];
 
+  constructor(private exifParserService: ExifParserService) {}
+
   create(files: Array<Express.Multer.File>): void {
+    this.exifParserService.parse(files[0]);
+
     const createdPhotos: Photo[] = files.map((file) => {
       return {
         id: uuid(),

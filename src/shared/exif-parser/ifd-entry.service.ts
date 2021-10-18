@@ -1,33 +1,23 @@
-import { BufferStream } from './buffer-stream';
+import { Injectable } from '@nestjs/common';
+
 import {
   BYTES_PER_COMPONENT,
   GPS_EXIF_TAGS,
   IFD_EXIF_TAGS,
-} from './exif-parser.constant';
+} from './constants/exif-tags.constant';
 import {
   App1Data,
+  Checkpoint,
+  IBufferStream,
   IFDEntry,
   IFDEntryRational64u,
   JpegSection,
-  Marker,
-} from './exif-parser.model';
+} from './models';
 
-export class App1 {
-  private bufferStream: BufferStream; // Original buffer stream.
-  private tiffMarker: Marker; // TIFF Header's starting point.
-  public tags: App1Data; // Payloads
-
-  constructor(section: JpegSection) {
-    const { name, payload } = section;
-
-    if (name !== 'APP1') {
-      throw new TypeError('Invalid APP1 JPEG Section!');
-    }
-
-    this.bufferStream = payload;
-    this.checkHeaders();
-    this.readAPP1Data();
-  }
+@Injectable()
+export class IfdEntryService {
+  private bufferStream: IBufferStream; // Original buffer stream.
+  private tiffMarker: Checkpoint; // TIFF Header's starting point.
 
   /**
    * Read the buffer stream's header area to check if the data is in JPEG format.
@@ -39,17 +29,17 @@ export class App1 {
    */
   private checkHeaders(): void {
     // EXIF Header
-    const exifHeader = this.bufferStream.nextStringByLength(6);
+    const exifHeader = this.bufferStream.readString(6);
 
     if (exifHeader !== 'Exif\0\0') {
       throw new TypeError('Not a EXIF Format Header');
     }
 
     // TIFF Headers (= Byte Align + Tag Mark + First IFD Offset)
-    const tiffMarker = this.bufferStream.mark();
+    const tiffMarker = this.bufferStream.createCheckpoint();
 
     // Byte Align - 0x4949(Little Endian), 0x4D4D(Big Endian)
-    const byteAlign = this.bufferStream.nextUInt16();
+    const byteAlign = this.bufferStream.readUInt16();
     if (byteAlign !== 0x4949 && byteAlign !== 0x4d4d) {
       throw new TypeError('Invalid Byte Align Header');
     } else {
@@ -57,7 +47,7 @@ export class App1 {
     }
 
     // Tag Mark is always either 0x002A or 0x2A00 according to the endian.
-    const tagMark = this.bufferStream.nextUInt16();
+    const tagMark = this.bufferStream.readUInt16();
     if (tagMark !== 0x002a && tagMark !== 0x2a00) {
       throw new TypeError('Invalid Tag Mark Header');
     }
@@ -73,24 +63,24 @@ export class App1 {
    * @param stream Entry's Butter Stream.
    * @returns A value.
    */
-  private readNumericValue(format: number, stream: BufferStream): number {
+  private readNumericValue(format: number, stream: IBufferStream): number {
     switch (format) {
       case 0x01:
-        return stream.nextUInt8();
+        return stream.readUInt8();
       case 0x03:
-        return stream.nextUInt16();
+        return stream.readUInt16();
       case 0x04:
-        return stream.nextUInt32();
+        return stream.readUInt32();
       case 0x06:
-        return stream.nextInt8();
+        return stream.readInt8();
       case 0x08:
-        return stream.nextUInt16();
+        return stream.readUInt16();
       case 0x09:
-        return stream.nextUInt32();
+        return stream.readUInt32();
       case 0x0b:
-        return stream.nextFloat();
+        return stream.readFloat();
       case 0x0c:
-        return stream.nextDouble();
+        return stream.readDouble();
       default:
         throw new Error('Invalid format while decoding: ' + format);
     }
@@ -105,13 +95,13 @@ export class App1 {
    */
   private readRationalValue(
     format: number,
-    stream: BufferStream,
+    stream: IBufferStream,
   ): [number, number] {
     switch (format) {
       case 0x05:
-        return [stream.nextUInt32(), stream.nextUInt32()];
+        return [stream.readUInt32(), stream.readUInt32()];
       case 0x0a:
-        return [stream.nextInt32(), stream.nextInt32()];
+        return [stream.readInt32(), stream.readInt32()];
       default:
         throw new Error('Invalid format while decoding: ' + format);
     }
@@ -129,26 +119,26 @@ export class App1 {
    * @returns { tagType, format, values } IFD entry.
    */
   private readIFDEntry(
-    targetStream: BufferStream,
+    targetStream: IBufferStream,
   ): IFDEntry | IFDEntryRational64u {
-    const tagType = targetStream.nextUInt16();
-    const format = targetStream.nextUInt16();
-    const numberOfComponents = targetStream.nextUInt32();
+    const tagType = targetStream.readUInt16();
+    const format = targetStream.readUInt16();
+    const numberOfComponents = targetStream.readUInt32();
 
     const bytesPerComponent = BYTES_PER_COMPONENT[format];
     const payloadSize = bytesPerComponent * numberOfComponents;
 
     // When the payload size is bigger then 4bytes, look up the payload area.
     if (payloadSize > 4) {
-      const payloadOffset = targetStream.nextUInt32();
-      targetStream = this.tiffMarker.openWithOffset(payloadOffset);
+      const payloadOffset = targetStream.readUInt32();
+      targetStream = this.tiffMarker.resumeWithOffset(payloadOffset);
     }
 
     let values: Array<number | [number, number]> | string;
 
     // ASCII String Type
     if (format === 2) {
-      const asciiString = targetStream.nextStringByLength(numberOfComponents);
+      const asciiString = targetStream.readString(numberOfComponents);
       const lastNullIndex = asciiString.indexOf('\0');
 
       values =
@@ -158,7 +148,7 @@ export class App1 {
     }
     // Undefined Type
     else if (format === 7) {
-      targetStream.nextBufferByLength(numberOfComponents);
+      targetStream.readBuffer(numberOfComponents);
     }
     // Other Types
     else if (format !== 0) {
@@ -193,14 +183,14 @@ export class App1 {
    * @returns An Array of IFD formatted data's entry.
    */
   private readIFDFormat(
-    targetStream: BufferStream,
+    targetStream: IBufferStream,
     isGPS = false,
   ): Array<IFDEntry | IFDEntryRational64u> {
     if (targetStream.remainingLength() < 2) {
       return [];
     }
 
-    const numberOfEntries = targetStream.nextUInt16();
+    const numberOfEntries = targetStream.readUInt16();
     const emptyEntries = new Array(numberOfEntries).fill(null);
     const entries = emptyEntries.map(() => {
       const entry = this.readIFDEntry(targetStream);
@@ -232,16 +222,16 @@ export class App1 {
    * 4. Data or Data's offset when its size exceeds 4bytes. (4bytes)
    *
    */
-  private readAPP1Data(): void {
-    const IFD0Offset = this.bufferStream.nextUInt32();
-    const IFD0Stream = this.tiffMarker.openWithOffset(IFD0Offset);
+  private readAPP1Data(): App1Data {
+    const IFD0Offset = this.bufferStream.readUInt32();
+    const IFD0Stream = this.tiffMarker.resumeWithOffset(IFD0Offset);
     const IFD0 = this.readIFDFormat(IFD0Stream);
-    const IFD1Offset = IFD0Stream.nextUInt32();
+    const IFD1Offset = IFD0Stream.readUInt32();
 
-    const tags: App1Data = { ifd0: IFD0, ifd1: [], subIfd: [], gps: [] };
+    const tags = { ifd0: IFD0, ifd1: [], subIfd: [], gps: [] };
 
     if (IFD1Offset !== 0) {
-      const bufferStreamIFD1 = this.tiffMarker.openWithOffset(IFD1Offset);
+      const bufferStreamIFD1 = this.tiffMarker.resumeWithOffset(IFD1Offset);
 
       tags.ifd1 = this.readIFDFormat(bufferStreamIFD1);
     }
@@ -251,7 +241,7 @@ export class App1 {
 
     if (gpsIFD) {
       const gpsOffset = gpsIFD.values[0];
-      const gpsStream = this.tiffMarker.openWithOffset(gpsOffset as number);
+      const gpsStream = this.tiffMarker.resumeWithOffset(gpsOffset as number);
 
       tags.gps = this.readIFDFormat(gpsStream, true);
     }
@@ -261,11 +251,26 @@ export class App1 {
 
     if (subIFD) {
       const subOffset = subIFD.values[0];
-      const subStream = this.tiffMarker.openWithOffset(subOffset as number);
+      const subStream = this.tiffMarker.resumeWithOffset(subOffset as number);
 
       tags.subIfd = this.readIFDFormat(subStream);
     }
 
-    this.tags = tags;
+    return tags;
+  }
+
+  public extractEntries(section: JpegSection): App1Data {
+    this.bufferStream = null;
+    this.tiffMarker = null;
+
+    const { name, payload } = section;
+
+    if (name !== 'APP1') {
+      throw new TypeError('Invalid APP1 JPEG Section!');
+    }
+
+    this.bufferStream = payload;
+    this.checkHeaders();
+    return this.readAPP1Data();
   }
 }
