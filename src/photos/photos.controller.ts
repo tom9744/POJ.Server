@@ -12,7 +12,7 @@ import {
 import { FilesInterceptor } from '@nestjs/platform-express';
 
 import { PhotosService } from './photos.service';
-import { Photo } from './types/photo.interface';
+import { Photo } from './models/photos.model';
 import { UpdatePhotoDto } from './DTOs/update-photo.dto';
 
 @Controller('photos')

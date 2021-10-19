@@ -3,8 +3,12 @@ import { Injectable } from '@nestjs/common';
 import { IfdEntryService } from './ifd-entry.service';
 import { JpegSectionService } from './jpeg-section.service';
 import {
+  App1Data,
+  App1Section,
+  App1SectionData,
   BufferStream,
   ExifParserConfigs,
+  IFDEntry,
   IFDEntryRational64u,
   JpegSection,
 } from './models';
@@ -63,32 +67,40 @@ export class ExifParserService {
     }
   }
 
-  public parse(file: Express.Multer.File): void {
-    const app1Section = this.preprocessFile(file);
-    const entries = this.ifdEntryService.extractEntries(app1Section);
+  public parse(file: Express.Multer.File): App1Data {
+    const section = this.preprocessFile(file);
+    const entries = this.ifdEntryService.extractEntries(section);
 
-    const data = Object.entries(entries).reduce((acc, [key, values]) => {
-      const result = values.reduce((acc, entry) => {
-        let value;
+    const result = Object.entries(entries).reduce(
+      (acc, [sectionName, sectionPayload]: [string, App1Section]) => {
+        const entriesByCategory = sectionPayload.reduce((acc, entry) => {
+          let value: string | number;
 
-        if (entry instanceof IFDEntryRational64u) {
-          value = this.translateValue(entry.tagName, entry.simplifedValues);
-        } else if (Array.isArray(entry.values)) {
-          value = entry.values[0];
-        } else {
-          value = entry.values;
-        }
+          // If the value is a rational value, translate it into string or number.
+          if (entry instanceof IFDEntryRational64u) {
+            value = this.translateValue(entry.tagName, entry.simplifedValues);
+          }
+          // If the value is an array, get its first element.
+          else if (Array.isArray(entry.values)) {
+            value = entry.values[0];
+          }
+          // Otherwise, the value is just a string.
+          else {
+            value = entry.values;
+          }
 
-        acc[entry.tagName] = value;
+          acc[entry.tagName] = value;
+
+          return acc;
+        }, {} as App1SectionData);
+
+        acc[sectionName] = entriesByCategory;
 
         return acc;
-      }, {});
+      },
+      {} as App1Data,
+    );
 
-      acc[key] = result;
-
-      return acc;
-    }, {});
-
-    console.log(data);
+    return result;
   }
 }

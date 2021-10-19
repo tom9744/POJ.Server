@@ -6,7 +6,8 @@ import {
   IFD_EXIF_TAGS,
 } from './constants/exif-tags.constant';
 import {
-  App1Data,
+  App1Entry,
+  App1Section,
   Checkpoint,
   IBufferStream,
   IFDEntry,
@@ -185,7 +186,7 @@ export class IfdEntryService {
   private readIFDFormat(
     targetStream: IBufferStream,
     isGPS = false,
-  ): Array<IFDEntry | IFDEntryRational64u> {
+  ): App1Section {
     if (targetStream.remainingLength() < 2) {
       return [];
     }
@@ -222,13 +223,18 @@ export class IfdEntryService {
    * 4. Data or Data's offset when its size exceeds 4bytes. (4bytes)
    *
    */
-  private readAPP1Data(): App1Data {
+  private readAPP1Data(): App1Entry {
     const IFD0Offset = this.bufferStream.readUInt32();
     const IFD0Stream = this.tiffMarker.resumeWithOffset(IFD0Offset);
     const IFD0 = this.readIFDFormat(IFD0Stream);
     const IFD1Offset = IFD0Stream.readUInt32();
 
-    const tags = { ifd0: IFD0, ifd1: [], subIfd: [], gps: [] };
+    const tags = {
+      ifd0: IFD0,
+      ifd1: [],
+      subIfd: [],
+      gps: [],
+    } as App1Entry;
 
     if (IFD1Offset !== 0) {
       const bufferStreamIFD1 = this.tiffMarker.resumeWithOffset(IFD1Offset);
@@ -259,7 +265,7 @@ export class IfdEntryService {
     return tags;
   }
 
-  public extractEntries(section: JpegSection): App1Data {
+  public extractEntries(section: JpegSection): App1Entry {
     this.bufferStream = null;
     this.tiffMarker = null;
 

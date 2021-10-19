@@ -48,9 +48,22 @@ export class IFDEntryRational64u {
   }
 }
 
+export type App1Section = Array<IFDEntry | IFDEntryRational64u>;
+
+export interface App1Entry {
+  ifd0: App1Section;
+  ifd1: App1Section;
+  subIfd: App1Section;
+  gps: App1Section;
+}
+
+export type App1SectionData = {
+  [key: string]: string | number;
+};
+
 export interface App1Data {
-  ifd0: Array<IFDEntry | IFDEntryRational64u>;
-  ifd1: Array<IFDEntry | IFDEntryRational64u>;
-  subIfd: Array<IFDEntry | IFDEntryRational64u>;
-  gps: Array<IFDEntry | IFDEntryRational64u>;
+  ifd0: App1SectionData;
+  ifd1: App1SectionData;
+  subIfd: App1SectionData;
+  gps: App1SectionData;
 }

@@ -1,30 +1,33 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ExifParserService } from 'src/shared/exif-parser/exif-parser.service';
+import { MetadataService } from 'src/shared/metadata/metadata.service';
 
 import { v1 as uuid } from 'uuid';
 
 import { UpdatePhotoDto } from './DTOs/update-photo.dto';
-import { Photo } from './types/photo.interface';
+import { Photo } from './models/photos.model';
 
 @Injectable()
 export class PhotosService {
-  private readonly photos = [];
+  private readonly photos: Photo[] = [];
 
-  constructor(private exifParserService: ExifParserService) {}
+  constructor(
+    private exifParserService: ExifParserService,
+    private metadataService: MetadataService,
+  ) {}
 
   create(files: Array<Express.Multer.File>): void {
-    this.exifParserService.parse(files[0]);
+    const photos = files.map((file) => {
+      const parsedData = this.exifParserService.parse(file);
+      const cameraInfo = this.metadataService.readCameraInfo(parsedData);
+      const coordinate = this.metadataService.readCoordinates(parsedData);
+      const modifyDate = this.metadataService.readModifyDate(parsedData);
+      const metadata = { ...cameraInfo, ...modifyDate, coordinate };
 
-    const createdPhotos: Photo[] = files.map((file) => {
-      return {
-        id: uuid(),
-        file,
-        location: [37.424039, 126.993378],
-        takenDate: new Date(),
-      };
+      return { id: uuid(), file, metadata };
     });
 
-    this.photos.push(...createdPhotos);
+    this.photos.push(...photos);
   }
 
   findAll(): Photo[] {
