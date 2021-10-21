@@ -36,8 +36,7 @@ export class ExifParserService {
     };
   }
 
-  private preprocessFile(file: Express.Multer.File): JpegSection {
-    const { buffer } = file;
+  private preprocessFile(buffer: Buffer): JpegSection {
     const originalStream = new BufferStream(buffer, 0, buffer.length, true);
     const checkPoint = originalStream.createCheckpoint();
     const newStream = checkPoint.resumeWithOffset(0);
@@ -67,8 +66,8 @@ export class ExifParserService {
     }
   }
 
-  public parse(file: Express.Multer.File): App1Data {
-    const section = this.preprocessFile(file);
+  public parse(buffer: Buffer): App1Data {
+    const section = this.preprocessFile(buffer);
     const entries = this.ifdEntryService.extractEntries(section);
 
     const result = Object.entries(entries).reduce(

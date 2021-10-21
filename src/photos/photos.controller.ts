@@ -14,14 +14,15 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { PhotosService } from './photos.service';
 import { Photo } from './models/photos.model';
 import { UpdatePhotoDto } from './DTOs/update-photo.dto';
+import { MULTER_OPTIONS } from 'src/library/multer.config';
 
 @Controller('photos')
 export class PhotosController {
   constructor(private photoService: PhotosService) {}
 
   @Post()
-  @UseInterceptors(FilesInterceptor('images', 20)) // Allow Multiple Files
-  createPhotos(@UploadedFiles() files: Array<Express.Multer.File>): void {
+  @UseInterceptors(FilesInterceptor('images', null, MULTER_OPTIONS)) // Allow Multiple Files
+  createPhotos(@UploadedFiles() files: Express.Multer.File[]): void {
     this.photoService.create(files);
   }
 

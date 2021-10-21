@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { readFileSync } from 'fs';
 import { ExifParserService } from 'src/shared/exif-parser/exif-parser.service';
 import { MetadataService } from 'src/shared/metadata/metadata.service';
 
@@ -18,12 +19,12 @@ export class PhotosService {
 
   create(files: Array<Express.Multer.File>): void {
     const photos = files.map((file) => {
-      const parsedData = this.exifParserService.parse(file);
+      const buffer = readFileSync(file.path);
+      const parsedData = this.exifParserService.parse(buffer);
       const cameraInfo = this.metadataService.readCameraInfo(parsedData);
       const coordinate = this.metadataService.readCoordinates(parsedData);
       const modifyDate = this.metadataService.readModifyDate(parsedData);
       const metadata = { ...cameraInfo, ...modifyDate, coordinate };
-
       return { id: uuid(), file, metadata };
     });
 
