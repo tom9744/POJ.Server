@@ -1,4 +1,4 @@
 export class UpdatePhotoDto {
-  location?: string;
-  takenDate?: Date;
+  latitude?: number;
+  longitude?: number;
 }

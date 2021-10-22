@@ -1,42 +1,73 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { readFileSync } from 'fs';
 import { ExifParserService } from 'src/shared/exif-parser/exif-parser.service';
 import { MetadataService } from 'src/shared/metadata/metadata.service';
-
-import { v1 as uuid } from 'uuid';
-
-import { UpdatePhotoDto } from './DTOs/update-photo.dto';
-import { Photo } from './models/photos.model';
+import { Repository } from 'typeorm';
+import { UpdatePhotoDto } from './dtos/update-photo.dto';
+import { Photo } from './entities/photo.entity';
+import { Metadata, ProcessedPhoto } from './interfaces/photos.interface';
 
 @Injectable()
 export class PhotosService {
   private readonly photos: Photo[] = [];
 
   constructor(
+    @InjectRepository(Photo)
+    private photosRepository: Repository<Photo>,
     private exifParserService: ExifParserService,
     private metadataService: MetadataService,
   ) {}
 
-  create(files: Array<Express.Multer.File>): void {
-    const photos = files.map((file) => {
-      const buffer = readFileSync(file.path);
-      const parsedData = this.exifParserService.parse(buffer);
-      const cameraInfo = this.metadataService.readCameraInfo(parsedData);
-      const coordinate = this.metadataService.readCoordinates(parsedData);
-      const modifyDate = this.metadataService.readModifyDate(parsedData);
-      const metadata = { ...cameraInfo, ...modifyDate, coordinate };
-      return { id: uuid(), file, metadata };
-    });
+  private readMetadata(file: Express.Multer.File): Metadata {
+    const buffer = readFileSync(file.path);
+    const parsedData = this.exifParserService.parse(buffer);
+    const cameraInfo = this.metadataService.readCameraInfo(parsedData);
+    const coordinate = this.metadataService.readCoordinates(parsedData);
+    const modifyDate = this.metadataService.readModifyDate(parsedData);
 
-    this.photos.push(...photos);
+    return { ...cameraInfo, ...modifyDate, coordinate };
+  }
+
+  // The date string format from EXIF file is in 'YYYY:MM:DD HH:MM:SS' which is not applicable for new Date()
+  // So, we should parse this string into Date object manually.
+  private parseDateTime(dateString: string): Date {
+    const [date, time] = dateString.split(' ');
+
+    return new Date(`${date.replace(':', '-')} ${time}`);
+  }
+
+  async create(files: Express.Multer.File[]): Promise<Photo[]> {
+    const photoEntites: Photo[] = files
+      .map((file) => {
+        const { filename, path } = file;
+        const metadata = this.readMetadata(file);
+
+        return { filename, path, metadata } as ProcessedPhoto;
+      })
+      .map(({ filename, path, metadata }) => {
+        const { modifyDate, coordinate } = metadata;
+        const photoEntity = this.photosRepository.create({
+          filename,
+          path,
+          modifyDate: this.parseDateTime(modifyDate),
+          ...coordinate,
+        });
+
+        return photoEntity;
+      });
+
+    await this.photosRepository.save(photoEntites);
+
+    return photoEntites;
   }
 
   findAll(): Photo[] {
     return this.photos;
   }
 
-  findOneById(id: string): Photo {
-    const foundPhoto = this.photos.find((photo) => photo.id === id);
+  async findOneById(id: number): Promise<Photo> {
+    const foundPhoto = await this.photosRepository.findOne(id);
 
     if (!foundPhoto) {
       throw new NotFoundException();
@@ -45,7 +76,7 @@ export class PhotosService {
     return foundPhoto;
   }
 
-  update(id: string, updatePhotoDto: UpdatePhotoDto): void {
+  update(id: number, updatePhotoDto: UpdatePhotoDto): void {
     const targetIndex = this.photos.findIndex((photo) => photo.id === id);
 
     if (targetIndex < 0) {
@@ -61,7 +92,7 @@ export class PhotosService {
     this.photos[targetIndex] = updatedPhoto; // Update Instance
   }
 
-  delete(id: string): void {
+  delete(id: number): void {
     this.photos.filter((photo) => photo.id !== id); // Delete Instance
   }
 }

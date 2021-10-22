@@ -12,9 +12,9 @@ import {
 import { FilesInterceptor } from '@nestjs/platform-express';
 
 import { PhotosService } from './photos.service';
-import { Photo } from './models/photos.model';
-import { UpdatePhotoDto } from './DTOs/update-photo.dto';
+import { UpdatePhotoDto } from './dtos/update-photo.dto';
 import { MULTER_OPTIONS } from 'src/library/multer.config';
+import { Photo } from './entities/photo.entity';
 
 @Controller('photos')
 export class PhotosController {
@@ -22,8 +22,10 @@ export class PhotosController {
 
   @Post()
   @UseInterceptors(FilesInterceptor('images', null, MULTER_OPTIONS)) // Allow Multiple Files
-  createPhotos(@UploadedFiles() files: Express.Multer.File[]): void {
-    this.photoService.create(files);
+  createPhotos(
+    @UploadedFiles() files: Express.Multer.File[],
+  ): Promise<Photo[]> {
+    return this.photoService.create(files);
   }
 
   @Get()
@@ -32,20 +34,20 @@ export class PhotosController {
   }
 
   @Get('/:id')
-  readPhotoById(@Param('id') id: string): Photo {
+  readPhotoById(@Param('id') id: number): Promise<Photo> {
     return this.photoService.findOneById(id);
   }
 
   @Patch('/:id')
   updatePhotoLocation(
-    @Param('id') id: string,
+    @Param('id') id: number,
     @Body() updatePhotoDto: UpdatePhotoDto,
   ): void {
     this.photoService.update(id, updatePhotoDto);
   }
 
   @Delete('/:id')
-  deletePhoto(@Param('id') id: string): void {
+  deletePhoto(@Param('id') id: number): void {
     this.photoService.delete(id);
   }
 }

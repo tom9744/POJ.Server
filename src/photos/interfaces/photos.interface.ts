@@ -5,8 +5,8 @@ export interface Metadata {
   coordinate: { latitude: number; longitude: number };
 }
 
-export interface Photo {
-  id: string;
-  file: Express.Multer.File;
+export interface ProcessedPhoto {
+  filename: string;
+  path: string;
   metadata: Metadata;
 }
