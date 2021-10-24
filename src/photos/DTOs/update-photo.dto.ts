@@ -1,4 +1,12 @@
+import { IsOptional } from 'class-validator';
+
 export class UpdatePhotoDto {
-  latitude?: number;
-  longitude?: number;
+  @IsOptional()
+  modifyDate: Date;
+
+  @IsOptional()
+  latitude: number;
+
+  @IsOptional()
+  longitude: number;
 }

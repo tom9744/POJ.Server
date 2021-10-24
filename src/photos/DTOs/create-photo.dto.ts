@@ -1,4 +1,3 @@
-export class CreatePhotoDto {
-  location: string;
-  takenDate: Date;
+export class CreatePhotosDto {
+  files: Express.Multer.File[];
 }

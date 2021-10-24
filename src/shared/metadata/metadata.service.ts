@@ -54,13 +54,13 @@ export class MetadataService {
     return { maker, model };
   }
 
-  public readModifyDate(exifData: App1Data): { modifyDate: string } {
+  public readModifyDate(exifData: App1Data): string {
     if (!exifData.ifd0 || !exifData.ifd0.hasOwnProperty('ModifyDate')) {
       return;
     }
 
     const modifyDate = exifData.ifd0['ModifyDate'] as string;
 
-    return { modifyDate };
+    return modifyDate;
   }
 }

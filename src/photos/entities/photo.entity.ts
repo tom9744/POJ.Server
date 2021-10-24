@@ -1,4 +1,5 @@
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { Journey } from 'src/journeys/entities/journey.entity';
+import { Entity, Column, PrimaryGeneratedColumn, ManyToOne } from 'typeorm';
 
 @Entity()
 export class Photo {
@@ -19,4 +20,7 @@ export class Photo {
 
   @Column({ type: 'float' })
   longitude: number;
+
+  @ManyToOne((type) => Journey, (journey) => journey.photos, { eager: false })
+  journey: Journey;
 }

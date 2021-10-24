@@ -29,7 +29,7 @@ export class PhotosController {
   }
 
   @Get()
-  readAllPhotos(): Photo[] {
+  readAllPhotos(): Promise<Photo[]> {
     return this.photoService.findAll();
   }
 
