@@ -15,6 +15,7 @@ import { PhotosService } from './photos.service';
 import { UpdatePhotoDto } from './dtos/update-photo.dto';
 import { MULTER_OPTIONS } from 'src/library/multer.config';
 import { Photo } from './entities/photo.entity';
+import { CreatePhotosDto } from './dtos/create-photo.dto';
 
 @Controller('photos')
 export class PhotosController {
@@ -24,8 +25,9 @@ export class PhotosController {
   @UseInterceptors(FilesInterceptor('images', null, MULTER_OPTIONS)) // Allow Multiple Files
   createPhotos(
     @UploadedFiles() files: Express.Multer.File[],
+    @Body() createPhotosDto: CreatePhotosDto,
   ): Promise<Photo[]> {
-    return this.photoService.create(files);
+    return this.photoService.create(files, createPhotosDto);
   }
 
   @Get()

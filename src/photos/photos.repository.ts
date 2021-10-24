@@ -1,3 +1,4 @@
+import { Journey } from 'src/journeys/entities/journey.entity';
 import { EntityRepository, Repository } from 'typeorm';
 import { Photo } from './entities/photo.entity';
 import { ProcessedPhoto } from './interfaces/photos.interface';
@@ -12,7 +13,10 @@ export class PhotosRepository extends Repository<Photo> {
     return new Date(`${date.replace(':', '-')}T${time}`);
   }
 
-  async createPhotos(processedPhotos: ProcessedPhoto[]): Promise<Photo[]> {
+  async createPhotos(
+    processedPhotos: ProcessedPhoto[],
+    journey: Journey,
+  ): Promise<Photo[]> {
     const photoEntities: Photo[] = processedPhotos.map((ProcessedPhoto) => {
       const { filename, path, metadata } = ProcessedPhoto;
       const { modifyDate, coordinate } = metadata;
@@ -24,6 +28,7 @@ export class PhotosRepository extends Repository<Photo> {
         modifyDate: modifyDate ? this.parseDateTime(modifyDate) : new Date(),
         latitude: coordinate?.latitude ? coordinate?.latitude : 0,
         longitude: coordinate?.longitude ? coordinate?.longitude : 0,
+        journey,
       });
 
       return photoEntity;

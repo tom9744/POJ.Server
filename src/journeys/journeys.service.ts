@@ -37,6 +37,18 @@ export class JourneysService {
     return foundJourney;
   }
 
+  async findOneByTitle(title: string): Promise<Journey> {
+    const foundJourney = await this.journeysRepository.findOne({ title });
+
+    if (!foundJourney) {
+      throw new NotFoundException(
+        `Could not find a journey with title ${title}`,
+      );
+    }
+
+    return foundJourney;
+  }
+
   async update(id: number, updateJourneyDto: UpdateJourneyDto): Promise<void> {
     const targetJourney = this.findOneById(id);
 

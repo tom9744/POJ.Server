@@ -8,5 +8,6 @@ import { JourneysService } from './journeys.service';
   imports: [TypeOrmModule.forFeature([JourneysRepository])],
   controllers: [JourneysController],
   providers: [JourneysService],
+  exports: [JourneysService, TypeOrmModule],
 })
 export class JourneysModule {}

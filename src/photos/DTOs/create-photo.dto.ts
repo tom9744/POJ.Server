@@ -1,3 +1,6 @@
+import { IsString } from 'class-validator';
+
 export class CreatePhotosDto {
-  files: Express.Multer.File[];
+  @IsString()
+  journeyTitle: string;
 }
