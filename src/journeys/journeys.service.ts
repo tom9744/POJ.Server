@@ -1,55 +1,56 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 
-import { v1 as uuid } from 'uuid';
-
-import { CreateJourneyDto } from './DTOs/create-journey.dto';
-import { UpdateJourneyDto } from './DTOs/update-journey.dto';
-import { Journey } from './types/journey.interface';
+import { CreateJourneyDto } from './dtos/create-journey.dto';
+import { UpdateJourneyDto } from './dtos/update-journey.dto';
+import { Journey } from './entities/journey.entity';
+import { JourneysRepository } from './journeys.repository';
 
 @Injectable()
 export class JourneysService {
-  private readonly journeys: Journey[] = [];
+  constructor(
+    @InjectRepository(JourneysRepository)
+    private journeysRepository: JourneysRepository,
+  ) {}
 
-  create(createJourneyDto: CreateJourneyDto): void {
-    const newJourney: Journey = {
-      id: uuid(), // Temporal ID, will be replaced to DB-Generated ID.
-      ...createJourneyDto,
-    };
-
-    this.journeys.push(newJourney); // Create Instance
+  async create(createJourneyDto: CreateJourneyDto): Promise<Journey> {
+    try {
+      return await this.journeysRepository.createJourney(createJourneyDto);
+    } catch (error) {
+      throw error;
+    }
   }
 
-  findAll(): Journey[] {
-    return this.journeys;
+  async findAll(): Promise<Journey[]> {
+    const foundJourneys: Journey[] = await this.journeysRepository.find();
+
+    return foundJourneys;
   }
 
-  findOneById(id: string): Journey {
-    const foundJourney = this.journeys.find((journey) => journey.id === id);
+  async findOneById(id: number): Promise<Journey> {
+    const foundJourney = this.journeysRepository.findOne(id);
 
     if (!foundJourney) {
-      throw new NotFoundException();
+      throw new NotFoundException(`Could not find a journey with ID ${id}`);
     }
 
     return foundJourney;
   }
 
-  update(id: string, updateJourneyDto: UpdateJourneyDto): void {
-    const targetIndex = this.journeys.findIndex((journey) => journey.id === id);
+  async update(id: number, updateJourneyDto: UpdateJourneyDto): Promise<void> {
+    const targetJourney = this.findOneById(id);
 
-    if (targetIndex < 0) {
-      throw new NotFoundException();
-    }
-
-    const originalJourney = this.journeys[targetIndex];
-    const updatedJourney = {
-      ...originalJourney,
+    await this.journeysRepository.save({
+      ...targetJourney,
       ...updateJourneyDto,
-    };
-
-    this.journeys[targetIndex] = updatedJourney; // Update Instance
+    });
   }
 
-  delete(id: string) {
-    this.journeys.filter((journey) => journey.id !== id); // Delete Instance
+  async delete(id: number): Promise<void> {
+    const deletionResult = await this.journeysRepository.delete(id);
+
+    if (deletionResult.affected < 1) {
+      throw new NotFoundException(`Can't find a journey with ID ${id}`);
+    }
   }
 }

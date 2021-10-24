@@ -1,6 +1,15 @@
+import { IsDateString, IsString } from 'class-validator';
+
 export class CreateJourneyDto {
+  @IsString()
   title: string;
+
+  @IsString()
   description: string;
-  startDate: Date;
-  endDate: Date;
+
+  @IsDateString()
+  startDate: string;
+
+  @IsDateString()
+  endDate: string;
 }
