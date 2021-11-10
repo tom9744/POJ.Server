@@ -10,7 +10,8 @@ export class PhotosRepository extends Repository<Photo> {
   private parseDateTime(dateString: string): Date {
     const [date, time] = dateString.split(' ');
 
-    return new Date(`${date.replace(':', '-')}T${time}`);
+    // When using plain string for the fisrt arg of 'replace', it only replaces the first match.
+    return new Date(`${date.replace(/\:/g, '-')}T${time}`);
   }
 
   async createPhotos(
