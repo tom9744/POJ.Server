@@ -21,6 +21,9 @@ export class Photo {
   @Column({ type: 'float' })
   longitude: number;
 
-  @ManyToOne((type) => Journey, (journey) => journey.photos, { eager: false })
+  @ManyToOne((type) => Journey, (journey) => journey.photos, {
+    eager: false,
+    onDelete: 'CASCADE',
+  })
   journey: Journey;
 }
