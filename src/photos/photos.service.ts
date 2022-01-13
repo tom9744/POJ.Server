@@ -4,8 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { readFileSync } from 'fs';
+import { S3 } from 'aws-sdk';
 import { JourneysService } from 'src/journeys/journeys.service';
+import { AWS_S3_CONFIG } from 'src/library/aws-s3.config';
 import { ExifParserService } from 'src/shared/exif-parser/exif-parser.service';
 import { MetadataService } from 'src/shared/metadata/metadata.service';
 import { CreatePhotosDto } from './dtos/create-photo.dto';
@@ -13,6 +14,7 @@ import { UpdatePhotoDto } from './dtos/update-photo.dto';
 import { Photo } from './entities/photo.entity';
 import { Metadata, ProcessedPhoto } from './interfaces/photos.interface';
 import { PhotosRepository } from './photos.repository';
+import { v1 as uuid } from 'uuid';
 
 @Injectable()
 export class PhotosService {
@@ -24,15 +26,44 @@ export class PhotosService {
     private journeysService: JourneysService,
     private exifParserService: ExifParserService,
     private metadataService: MetadataService,
+    private awsS3: S3,
   ) {}
 
-  private readMetadata(file: Express.Multer.File): Metadata {
-    const buffer = readFileSync(file.path);
+  private readMetadata(buffer: Buffer): Metadata {
     const parsedData = this.exifParserService.parse(buffer);
     const coordinate = this.metadataService.readCoordinates(parsedData);
     const modifyDate = this.metadataService.readModifyDate(parsedData);
 
     return { modifyDate, coordinate };
+  }
+
+  private generatePath(filename: string) {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth() + 1;
+    const date = today.getDate();
+
+    return `${year}-${month}-${date}/${uuid()}-${filename}`;
+  }
+
+  /**
+   * @param file A JPEG formatted image file to be uploaed to AWS S3 Bucket
+   * @returns An URL which can be used to access the uploaded image file on AWS S3 Bucket
+   */
+  private uploadFileToS3(file: Express.Multer.File): Promise<string> {
+    const generateParam = (): S3.PutObjectRequest => {
+      return {
+        Body: file.buffer,
+        Bucket: AWS_S3_CONFIG.BUCKET_NAME,
+        Key: this.generatePath(file.originalname),
+      };
+    };
+
+    return new Promise((resolve, reject) => {
+      this.awsS3.upload(generateParam(), null, (error, data) => {
+        error ? reject(error.message) : resolve(data.Location);
+      });
+    });
   }
 
   async create(
@@ -43,12 +74,18 @@ export class PhotosService {
     const journey = await this.journeysService.findOneByTitle(journeyTitle);
 
     try {
-      const processedPhotos = files.map((file) => {
-        const { filename, path } = file;
-        const metadata = this.readMetadata(file);
+      const processedPhotos = await Promise.all(
+        files.map(async (file) => {
+          const { originalname, buffer } = file;
+          const metadata = this.readMetadata(buffer);
 
-        return { filename, path, metadata } as ProcessedPhoto;
-      });
+          return {
+            filename: originalname,
+            path: await this.uploadFileToS3(file),
+            metadata,
+          } as ProcessedPhoto;
+        }),
+      );
 
       return this.photosRepository.createPhotos(processedPhotos, journey);
     } catch (error) {
