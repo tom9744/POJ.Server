@@ -130,12 +130,16 @@ export class BufferStream implements IBufferStream {
   }
 
   public copy(offset: number, copyLength: number): IBufferStream {
+    const newLength =
+      typeof copyLength === 'number'
+        ? copyLength
+        : this.endPosition - (this.offset + offset);
     const newOffset = this.offset + offset;
 
     return new BufferStream(
       this.buffer,
       newOffset,
-      copyLength,
+      newLength,
       this.isBigEndian,
     );
   }

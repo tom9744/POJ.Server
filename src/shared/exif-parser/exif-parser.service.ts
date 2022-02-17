@@ -8,7 +8,6 @@ import {
   App1SectionData,
   BufferStream,
   ExifParserConfigs,
-  IFDEntry,
   IFDEntryRational64u,
   JpegSection,
 } from './models';
