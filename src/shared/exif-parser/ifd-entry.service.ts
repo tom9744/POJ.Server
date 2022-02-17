@@ -11,7 +11,7 @@ import {
   App1Section,
   IFDEntry,
   IFDEntryRational64u,
-  JpegSection,
+  IJpegMarker,
 } from "./models";
 
 @Injectable()
@@ -264,17 +264,15 @@ export class IfdEntryService {
     return tags;
   }
 
-  public extractEntries(section: JpegSection): App1Entry {
+  public extractEntries(section: IJpegMarker): App1Entry {
     this.bufferStream = null;
     this.tiffMarker = null;
 
-    const { name, payload } = section;
-
-    if (name !== "APP1") {
+    if (!section.isAPP1) {
       throw new TypeError("Invalid APP1 JPEG Section!");
     }
 
-    this.bufferStream = payload;
+    this.bufferStream = section.payload;
     this.checkHeaders();
     return this.readAPP1Data();
   }

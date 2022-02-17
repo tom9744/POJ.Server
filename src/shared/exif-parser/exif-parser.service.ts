@@ -2,14 +2,14 @@ import { Injectable } from "@nestjs/common";
 
 import { BufferStream } from "src/models/buffer-stream.model";
 import { IfdEntryService } from "./ifd-entry.service";
-import { JpegSectionService } from "./jpeg-section.service";
+import { JpegMarkerService } from "./jpeg-marker.service";
 import {
   App1Data,
   App1Section,
   App1SectionData,
   ExifParserConfigs,
   IFDEntryRational64u,
-  JpegSection,
+  IJpegMarker,
 } from "./models";
 
 @Injectable()
@@ -24,7 +24,7 @@ export class ExifParserService {
   };
 
   constructor(
-    private jpegSectionService: JpegSectionService,
+    private jpegMarkerService: JpegMarkerService,
     private ifdEntryService: IfdEntryService,
   ) {}
 
@@ -35,13 +35,13 @@ export class ExifParserService {
     };
   }
 
-  private preprocessFile(buffer: Buffer): JpegSection {
+  private preprocessFile(buffer: Buffer): IJpegMarker {
     const originalStream = new BufferStream(buffer, 0, buffer.length, true);
     const checkPoint = originalStream.createCheckpoint();
     const newStream = checkPoint.resumeWithOffset(0);
-    const app1Section = this.jpegSectionService
+    const app1Section = this.jpegMarkerService
       .extractSections(newStream)
-      .find(({ markerType }: JpegSection) => markerType === 0xe1);
+      .find((JpegMarker: IJpegMarker) => JpegMarker.isAPP1);
 
     if (!app1Section) {
       throw new Error("This JPEG file does not contain APP1 section.");
