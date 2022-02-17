@@ -2,19 +2,19 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { S3 } from 'aws-sdk';
-import { JourneysService } from 'src/journeys/journeys.service';
-import { AWS_S3_CONFIG } from 'src/library/aws-s3.config';
-import { ExifParserService } from 'src/shared/exif-parser/exif-parser.service';
-import { MetadataService } from 'src/shared/metadata/metadata.service';
-import { CreatePhotosDto } from './dtos/create-photo.dto';
-import { UpdatePhotoDto } from './dtos/update-photo.dto';
-import { Photo } from './entities/photo.entity';
-import { Metadata, ProcessedPhoto } from './interfaces/photos.interface';
-import { PhotosRepository } from './photos.repository';
-import { v1 as uuid } from 'uuid';
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { S3 } from "aws-sdk";
+import { JourneysService } from "src/journeys/journeys.service";
+import { AWS_S3_CONFIG } from "src/library/aws-s3.config";
+import { ExifParserService } from "src/shared/exif-parser/exif-parser.service";
+import { CreatePhotosDto } from "./dtos/create-photo.dto";
+import { UpdatePhotoDto } from "./dtos/update-photo.dto";
+import { Photo } from "./entities/photo.entity";
+import { ProcessedPhoto } from "./interfaces/photos.interface";
+import { PhotosRepository } from "./photos.repository";
+import { v1 as uuid } from "uuid";
+import { IMetadata, Metadata } from "src/models/metadata.model";
 
 @Injectable()
 export class PhotosService {
@@ -25,16 +25,13 @@ export class PhotosService {
     private photosRepository: PhotosRepository,
     private journeysService: JourneysService,
     private exifParserService: ExifParserService,
-    private metadataService: MetadataService,
     private awsS3: S3,
   ) {}
 
-  private readMetadata(buffer: Buffer): Metadata {
+  private readMetadata(buffer: Buffer): IMetadata {
     const parsedData = this.exifParserService.parse(buffer);
-    const coordinate = this.metadataService.readCoordinates(parsedData);
-    const modifyDate = this.metadataService.readModifyDate(parsedData);
 
-    return { modifyDate, coordinate };
+    return new Metadata(parsedData);
   }
 
   private generatePath(filename: string) {
@@ -89,7 +86,7 @@ export class PhotosService {
 
       return this.photosRepository.createPhotos(processedPhotos, journey);
     } catch (error) {
-      throw new BadRequestException('Invalid files has been passed.');
+      throw new BadRequestException("Invalid files has been passed.");
     }
   }
 
