@@ -1,4 +1,4 @@
-import { IBufferStream } from './buffer-stream.model';
+import { IBufferStream } from "../../../models/buffer-stream.model";
 
 export interface JpegSection {
   markerType: number;

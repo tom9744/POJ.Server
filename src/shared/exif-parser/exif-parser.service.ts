@@ -1,16 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable } from "@nestjs/common";
 
-import { IfdEntryService } from './ifd-entry.service';
-import { JpegSectionService } from './jpeg-section.service';
+import { BufferStream } from "src/models/buffer-stream.model";
+import { IfdEntryService } from "./ifd-entry.service";
+import { JpegSectionService } from "./jpeg-section.service";
 import {
   App1Data,
   App1Section,
   App1SectionData,
-  BufferStream,
   ExifParserConfigs,
   IFDEntryRational64u,
   JpegSection,
-} from './models';
+} from "./models";
 
 @Injectable()
 export class ExifParserService {
@@ -44,7 +44,7 @@ export class ExifParserService {
       .find(({ markerType }: JpegSection) => markerType === 0xe1);
 
     if (!app1Section) {
-      throw new Error('This JPEG file does not contain APP1 section.');
+      throw new Error("This JPEG file does not contain APP1 section.");
     }
 
     return app1Section;
@@ -52,14 +52,14 @@ export class ExifParserService {
 
   private translateValue(tagName: string, values: number[]) {
     switch (tagName) {
-      case 'GPSLatitude':
-      case 'GPSLongitude':
+      case "GPSLatitude":
+      case "GPSLongitude":
         const [degree, minutes, seconds] = [...values];
         return degree + minutes / 60 + seconds / 3600;
-      case 'GPSTimeStamp':
+      case "GPSTimeStamp":
         return values
           .map((value) => (value < 10 ? `0${value}` : `${value}`))
-          .join(':');
+          .join(":");
       default:
         return values[0];
     }

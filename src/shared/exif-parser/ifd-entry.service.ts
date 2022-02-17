@@ -1,19 +1,18 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable } from "@nestjs/common";
 
+import { Checkpoint, IBufferStream } from "src/models/buffer-stream.model";
 import {
   BYTES_PER_COMPONENT,
   GPS_EXIF_TAGS,
   IFD_EXIF_TAGS,
-} from './constants/exif-tags.constant';
+} from "./constants/exif-tags.constant";
 import {
   App1Entry,
   App1Section,
-  Checkpoint,
-  IBufferStream,
   IFDEntry,
   IFDEntryRational64u,
   JpegSection,
-} from './models';
+} from "./models";
 
 @Injectable()
 export class IfdEntryService {
@@ -32,8 +31,8 @@ export class IfdEntryService {
     // EXIF Header
     const exifHeader = this.bufferStream.readString(6);
 
-    if (exifHeader !== 'Exif\0\0') {
-      throw new TypeError('Not a EXIF Format Header');
+    if (exifHeader !== "Exif\0\0") {
+      throw new TypeError("Not a EXIF Format Header");
     }
 
     // TIFF Headers (= Byte Align + Tag Mark + First IFD Offset)
@@ -42,7 +41,7 @@ export class IfdEntryService {
     // Byte Align - 0x4949(Little Endian), 0x4D4D(Big Endian)
     const byteAlign = this.bufferStream.readUInt16();
     if (byteAlign !== 0x4949 && byteAlign !== 0x4d4d) {
-      throw new TypeError('Invalid Byte Align Header');
+      throw new TypeError("Invalid Byte Align Header");
     } else {
       this.bufferStream.setBigEndian(byteAlign === 0x4d4d);
     }
@@ -50,7 +49,7 @@ export class IfdEntryService {
     // Tag Mark is always either 0x002A or 0x2A00 according to the endian.
     const tagMark = this.bufferStream.readUInt16();
     if (tagMark !== 0x002a && tagMark !== 0x2a00) {
-      throw new TypeError('Invalid Tag Mark Header');
+      throw new TypeError("Invalid Tag Mark Header");
     }
 
     // Remember TIFF Header's position.
@@ -83,7 +82,7 @@ export class IfdEntryService {
       case 0x0c:
         return stream.readDouble();
       default:
-        throw new Error('Invalid format while decoding: ' + format);
+        throw new Error("Invalid format while decoding: " + format);
     }
   }
 
@@ -104,7 +103,7 @@ export class IfdEntryService {
       case 0x0a:
         return [stream.readInt32(), stream.readInt32()];
       default:
-        throw new Error('Invalid format while decoding: ' + format);
+        throw new Error("Invalid format while decoding: " + format);
     }
   }
 
@@ -140,7 +139,7 @@ export class IfdEntryService {
     // ASCII String Type
     if (format === 2) {
       const asciiString = targetStream.readString(numberOfComponents);
-      const lastNullIndex = asciiString.indexOf('\0');
+      const lastNullIndex = asciiString.indexOf("\0");
 
       values =
         lastNullIndex !== -1
@@ -271,8 +270,8 @@ export class IfdEntryService {
 
     const { name, payload } = section;
 
-    if (name !== 'APP1') {
-      throw new TypeError('Invalid APP1 JPEG Section!');
+    if (name !== "APP1") {
+      throw new TypeError("Invalid APP1 JPEG Section!");
     }
 
     this.bufferStream = payload;

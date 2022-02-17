@@ -1,28 +1,29 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable } from "@nestjs/common";
+import { IBufferStream } from "src/models/buffer-stream.model";
 
-import { IBufferStream, JpegSection } from './models';
+import { JpegSection } from "./models";
 
 export const JPEG_MARKER_TYPES: { [markerType: number]: string } = {
-  0xc0: 'SOF0',
-  0xc2: 'SOF2',
-  0xc4: 'DHT',
-  0xd0: 'Restart',
-  0xd1: 'Restart',
-  0xd2: 'Restart',
-  0xd3: 'Restart',
-  0xd4: 'Restart',
-  0xd5: 'Restart',
-  0xd6: 'Restart',
-  0xd7: 'Restart',
-  0xd8: 'SOI',
-  0xd9: 'EOI',
-  0xda: 'SOS',
-  0xdb: 'DQT',
-  0xdd: 'DRI',
-  0xe0: 'APP0',
-  0xe1: 'APP1',
-  0xe2: 'APP2',
-  0xfe: 'COM',
+  0xc0: "SOF0",
+  0xc2: "SOF2",
+  0xc4: "DHT",
+  0xd0: "Restart",
+  0xd1: "Restart",
+  0xd2: "Restart",
+  0xd3: "Restart",
+  0xd4: "Restart",
+  0xd5: "Restart",
+  0xd6: "Restart",
+  0xd7: "Restart",
+  0xd8: "SOI",
+  0xd9: "EOI",
+  0xda: "SOS",
+  0xdb: "DQT",
+  0xdd: "DRI",
+  0xe0: "APP0",
+  0xe1: "APP1",
+  0xe2: "APP2",
+  0xfe: "COM",
 };
 
 /**
@@ -56,7 +57,7 @@ export class JpegSectionService {
       const markerType = stream.readUInt8(); // Type of a marker.
 
       if (prefix !== 0xff) {
-        throw new Error('Invalid JPEG Section Marker.');
+        throw new Error("Invalid JPEG Section Marker.");
       }
 
       // Stop extracting when SOS marker is found.
