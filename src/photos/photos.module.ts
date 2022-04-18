@@ -8,6 +8,7 @@ import { PhotosRepository } from './photos.repository';
 import { PhotosService } from './photos.service';
 import { S3 } from 'aws-sdk';
 import { AWS_S3_CONFIG } from 'src/library/aws-s3.config';
+import { PhotoUploadService } from './services/photo-upload.service';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AWS_S3_CONFIG } from 'src/library/aws-s3.config';
   providers: [
     PhotosService,
     JourneysService,
+    PhotoUploadService,
     {
       provide: S3,
       useFactory: () =>

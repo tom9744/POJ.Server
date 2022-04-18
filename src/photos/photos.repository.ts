@@ -18,17 +18,18 @@ export class PhotosRepository extends Repository<Photo> {
     processedPhotos: ProcessedPhoto[],
     journey: Journey,
   ): Promise<Photo[]> {
-    const photoEntities: Photo[] = processedPhotos.map((ProcessedPhoto) => {
-      const { filename, path, metadata } = ProcessedPhoto;
+    const photoEntities: Photo[] = processedPhotos.map((photo) => {
+      const { filename, originalPath, thumbnailPath, metadata } = photo;
       const { modifyDate, coordinate } = metadata;
 
       // When the metadata is empty, set it to default value so that the user can modify later.
       const photoEntity = this.create({
         filename,
-        path,
+        originalPath,
+        thumbnailPath,
         modifyDate: modifyDate ? this.parseDateTime(modifyDate) : new Date(),
-        latitude: coordinate?.latitude ? coordinate?.latitude : 0,
-        longitude: coordinate?.longitude ? coordinate?.longitude : 0,
+        latitude: coordinate?.latitude ?? 0,
+        longitude: coordinate?.longitude ?? 0,
         journey,
       });
 

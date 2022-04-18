@@ -10,7 +10,10 @@ export class Photo {
   filename: string;
 
   @Column()
-  path: string;
+  originalPath: string;
+
+  @Column()
+  thumbnailPath: string;
 
   @Column()
   modifyDate: Date;

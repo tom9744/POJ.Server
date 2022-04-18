@@ -5,6 +5,7 @@ export interface Metadata {
 
 export interface ProcessedPhoto {
   filename: string;
-  path: string;
+  originalPath: string;
+  thumbnailPath: string;
   metadata: Metadata;
 }
